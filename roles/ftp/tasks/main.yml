@@ -1,0 +1,51 @@
+---
+- name: Permitir nologin en /etc/shells (necesario para el login FTP)
+  ansible.builtin.lineinfile:
+    path: /etc/shells
+    line: /usr/sbin/nologin
+    create: true
+
+- name: Crear usuario FTP (sin shell de login)
+  ansible.builtin.user:
+    name: "{{ ftp_user }}"
+    shell: /usr/sbin/nologin
+    home: "{{ ftp_home }}"
+    create_home: true
+  register: ftp_user_res
+
+- name: Asignar contrasena al usuario FTP (solo al crearlo)
+  ansible.builtin.command: chpasswd
+  args:
+    stdin: "{{ ftp_user }}:{{ ftp_password }}"
+  when: ftp_user_res.changed
+  no_log: true
+
+- name: Raiz de la jaula FTP (propiedad de root, no escribible)
+  ansible.builtin.file:
+    path: "{{ ftp_home }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Directorio de subidas del usuario FTP
+  ansible.builtin.file:
+    path: "{{ ftp_home }}/subidas"
+    state: directory
+    owner: "{{ ftp_user }}"
+    mode: "0755"
+
+- name: Configurar vsftpd
+  ansible.builtin.template:
+    src: vsftpd.conf.j2
+    dest: /etc/vsftpd.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reiniciar vsftpd
+
+- name: Habilitar e iniciar vsftpd
+  ansible.builtin.service:
+    name: vsftpd
+    state: started
+    enabled: true

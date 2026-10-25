@@ -1,0 +1,33 @@
+paquetes_lamp_samba:
+  - apache2
+  - apache2-mod_php8
+  - php8
+  - php8-mysql
+  - php8-mbstring
+  - php8-gd
+  - php8-curl
+  - php8-zip
+  - phpMyAdmin
+  - mariadb
+  - mariadb-client
+  - samba
+  - samba-client
+  - vsftpd
+mariadb_app_db: appdb
+mariadb_app_user: appuser
+mariadb_root_password: "{{ vault_mariadb_root_password }}"
+mariadb_app_password: "{{ vault_mariadb_app_password }}"
+pma_blowfish_secret: "{{ vault_pma_blowfish_secret }}"
+samba_workgroup: WORKGROUP
+samba_system_user: smbuser
+samba_group: sambashare
+samba_user_password: "{{ vault_samba_password }}"
+samba_share_name: compartido
+samba_share_path: /srv/samba/compartido
+samba_create_mask: "0664"
+samba_directory_mask: "0775"
+ftp_user: ftpuser
+ftp_home: /srv/ftp/ftpuser
+ftp_password: "{{ vault_ftp_password }}"
+ftp_pasv_min: 40000
+ftp_pasv_max: 40100

@@ -1,0 +1,11 @@
+---
+- name: Despliegue LAMP + Samba + FTP 
+  hosts: "{{ grupo | default('ASO') }}"
+  gather_facts: false
+  roles:
+    - common
+    - mariadb
+    - apache_php
+    - phpmyadmin
+    - samba
+    - ftp

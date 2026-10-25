@@ -1,0 +1,6 @@
+[servidor]
+192.168.0.214 ansible_user=root ansible_password=mundolibre ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+
+[ASO]
+192.168.0.214
+

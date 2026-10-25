@@ -1,0 +1,17 @@
+---
+- name: Comprobar si el modulo PHP esta cargado en Apache
+  ansible.builtin.shell: apachectl -M 2>/dev/null | grep -qi php
+  register: php_mod
+  failed_when: false
+  changed_when: false
+
+- name: Habilitar modulo php8 de Apache
+  ansible.builtin.command: a2enmod php8
+  when: php_mod.rc != 0
+  notify: Reiniciar apache2
+
+- name: Pagina de prueba PHP
+  ansible.builtin.copy:
+    content: "<?php phpinfo(); ?>"
+    dest: /srv/www/htdocs/info.php
+    mode: "0644"

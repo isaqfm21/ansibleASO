@@ -1,0 +1,13 @@
+---
+- name: Instalar todos los paquetes en una sola transaccion
+  ansible.builtin.package:
+    name: "{{ paquetes_lamp_samba }}"
+    state: present
+
+- name: Abrir http, samba y ftp en firewalld (si esta activo)
+  ansible.builtin.shell: |
+    systemctl is-active --quiet firewalld || exit 0
+    firewall-cmd --permanent --add-service=http --add-service=samba --add-service=ftp
+    firewall-cmd --permanent --add-port={{ ftp_pasv_min }}-{{ ftp_pasv_max }}/tcp
+    firewall-cmd --reload
+  changed_when: false

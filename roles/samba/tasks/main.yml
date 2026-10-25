@@ -1,0 +1,57 @@
+---
+- name: Crear grupo del recurso compartido
+  ansible.builtin.group:
+    name: "{{ samba_group }}"
+    state: present
+
+- name: Crear usuario de sistema (sin shell ni home)
+  ansible.builtin.user:
+    name: "{{ samba_system_user }}"
+    group: "{{ samba_group }}"
+    shell: /usr/sbin/nologin
+    create_home: false
+    state: present
+
+- name: Crear directorio compartido
+  ansible.builtin.file:
+    path: "{{ samba_share_path }}"
+    state: directory
+    owner: root
+    group: "{{ samba_group }}"
+    mode: "0777"
+
+- name: Desplegar smb.conf validado con testparm
+  ansible.builtin.template:
+    src: smb.conf.j2
+    dest: /etc/samba/smb.conf
+    mode: "0644"
+    validate: testparm -s %s
+  notify: Reiniciar smb
+
+- name: Comprobar si el usuario Samba ya existe
+  ansible.builtin.shell: pdbedit -L | grep -q "^{{ samba_system_user }}:"
+  register: smb_user
+  failed_when: false
+  changed_when: false
+
+- name: Crear usuario Samba
+  ansible.builtin.command: smbpasswd -s -a {{ samba_system_user }}
+  args:
+    stdin: "{{ samba_user_password }}\n{{ samba_user_password }}"
+  when: smb_user.rc != 0
+  no_log: true
+
+- name: Permitir escritura en el share con SELinux (si esta activo)
+  ansible.builtin.shell: |
+    selinuxenabled || exit 0
+    getsebool samba_export_all_rw | grep -q -- '--> on' && exit 0
+    setsebool -P samba_export_all_rw on
+  args:
+    executable: /bin/bash
+  changed_when: false
+
+- name: Habilitar e iniciar smb
+  ansible.builtin.service:
+    name: smb
+    state: started
+    enabled: true

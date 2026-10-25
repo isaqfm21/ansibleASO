@@ -1,0 +1,33 @@
+---
+- name: Verificacion del despliegue en todas las maquinas
+  hosts: "{{ grupo | default('ASO') }}"
+  gather_facts: false
+  tasks:
+    - name: Servicios activos
+      ansible.builtin.command: systemctl is-active apache2 mariadb smb vsftpd
+      register: servicios
+      changed_when: false
+      failed_when: servicios.stdout_lines | reject('equalto', 'active') | list | length > 0
+    - name: PHP responde (info.php)
+      ansible.builtin.uri:
+        url: http://localhost/info.php
+        status_code: 200
+    - name: phpMyAdmin publicado
+      ansible.builtin.uri:
+        url: http://localhost/phpMyAdmin/
+        status_code: [200, 301, 302]
+    - name: Puerto FTP (21) abierto
+      ansible.builtin.wait_for:
+        port: 21
+        timeout: 10
+    - name: create mask efectivo en Samba
+      ansible.builtin.shell: testparm -s 2>/dev/null | grep -i "create mask"
+      register: cmask
+      changed_when: false
+    - name: Permisos del directorio compartido
+      ansible.builtin.command: stat -c '%A %U:%G' /srv/samba/compartido
+      register: dirperm
+      changed_when: false
+    - name: Resumen por maquina
+      ansible.builtin.debug:
+        msg: "OK servicios={{ servicios.stdout_lines }} | {{ cmask.stdout | trim }} | dir={{ dirperm.stdout }}"
