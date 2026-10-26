@@ -7,7 +7,7 @@ Despliegue LAMP + Samba + FTP + PostgreSQL con Ansible (roles) en openSUSE 16.0.
 5. Ejecucion manual para el despliegue `ansible-playbook playbook.yml`.
 6. Verificacion del despliegue en las maquinas `ansible-playbook verificar.yml`.
 
-Dspliegue en un solo script
+Despliegue en un solo script
  
 *  Ejecutar `./deploy.sh` que tiene todos los playbooks para ejecutar en uno solo.
 
