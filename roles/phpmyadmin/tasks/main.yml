@@ -1,9 +1,32 @@
 ---
+- name: Configurar Alias de phpMyAdmin en Apache (openSUSE)
+  ansible.builtin.copy:
+    dest: /etc/apache2/conf.d/phpMyAdmin.conf
+    content: |
+      Alias /phpMyAdmin /usr/share/phpMyAdmin
+      Alias /phpmyadmin /usr/share/phpMyAdmin
+
+      <Directory /usr/share/phpMyAdmin>
+        Options FollowSymLinks
+        DirectoryIndex index.php
+        AllowOverride All
+        Require all granted
+      </Directory>
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Reiniciar apache2
+
 - name: Configurar phpMyAdmin
   ansible.builtin.template:
     src: config.inc.php.j2
     dest: /etc/phpMyAdmin/config.inc.php
     owner: root
     group: www
-    mode: "0640"
+    mode: '0640'
   notify: Reiniciar apache2
+
+- name: Forzar reinicio de Apache para aplicar configuraciones
+  ansible.builtin.service:
+    name: apache2
+    state: restarted

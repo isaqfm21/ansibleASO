@@ -1,0 +1,9 @@
+<?php
+$c = pg_connect("host=localhost dbname={{ pg_db }} user={{ pg_user }} password={{ pg_user_password }} sslmode=require");
+if ($c) {
+ $v = pg_version($c);
+ echo "Conexion PHP -> PostgreSQL correcta. Servidor: " . $v['server'];
+} else {
+ echo "No se pudo conectar a PostgreSQL";
+}
+

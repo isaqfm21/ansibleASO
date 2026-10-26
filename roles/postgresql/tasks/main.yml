@@ -1,0 +1,121 @@
+---
+- name: Instalar PostgreSQL y la libreria PHP en una sola transaccion
+  ansible.builtin.package:
+    name: "{{ pg_packages }}"
+    state: present
+  notify: Reiniciar apache2
+
+- name: Asegurar directorio base y permisos de PostgreSQL
+  ansible.builtin.file:
+    path: /var/lib/pgsql
+    owner: postgres
+    group: postgres
+    mode: "0755"
+    state: directory
+
+- name: Inicializar manualmente el cluster de base de datos en openSUSE
+  ansible.builtin.command: runuser -u postgres -- initdb -D {{ pg_data_dir }}
+  args:
+    creates: "{{ pg_data_dir }}/PG_VERSION"
+
+- name: Iniciar y habilitar postgresql
+  ansible.builtin.service:
+    name: postgresql
+    state: started
+    enabled: true
+
+- name: Certificado autofirmado para cifrar conexiones (SSL/TLS)
+  ansible.builtin.command: >-
+    openssl req -new -x509 -days 825 -nodes -subj "/CN={{ inventory_hostname }}"
+    -out {{ pg_data_dir }}/server.crt -keyout {{ pg_data_dir }}/server.key
+  args:
+    creates: "{{ pg_data_dir }}/server.key"
+
+- name: Permisos del certificado y de la clave privada
+  ansible.builtin.file:
+    path: "{{ pg_data_dir }}/{{ item.name }}"
+    owner: postgres
+    group: postgres
+    mode: "{{ item.mode }}"
+  loop:
+    - { name: "server.key", mode: "0600" }
+    - { name: "server.crt", mode: "0644" }
+
+- name: Configurar postgresql.conf (acceso remoto, SSL y SCRAM)
+  ansible.builtin.blockinfile:
+    path: "{{ pg_data_dir }}/postgresql.conf"
+    marker: "# {mark} ANSIBLE: acceso remoto y cifrado"
+    block: |
+      listen_addresses = '*'
+      port = {{ pg_port }}
+      ssl = on
+      ssl_cert_file = 'server.crt'
+      ssl_key_file = 'server.key'
+      ssl_min_protocol_version = 'TLSv1.2'
+      password_encryption = scram-sha-256
+  notify: Reiniciar postgresql
+
+- name: Reglas de acceso pg_hba.conf
+  ansible.builtin.template:
+    src: pg_hba.conf.j2
+    dest: "{{ pg_data_dir }}/pg_hba.conf"
+    owner: postgres
+    group: postgres
+    mode: "0600"
+  notify: Reiniciar postgresql
+
+- name: Aplicar la configuracion ahora
+  ansible.builtin.meta: flush_handlers
+
+- name: Establecer la contrasena del usuario postgres
+  ansible.builtin.command: runuser -u postgres -- psql -v ON_ERROR_STOP=1 -d postgres
+  args:
+    chdir: /var/lib/pgsql
+    stdin: "ALTER ROLE postgres WITH PASSWORD '{{ pg_postgres_password }}';"
+  changed_when: false
+  no_log: true
+
+- name: Crear o actualizar el usuario nuevo
+  ansible.builtin.command: runuser -u postgres -- psql -v ON_ERROR_STOP=1 -d postgres
+  args:
+    chdir: /var/lib/pgsql
+    stdin: |
+      DO $$
+      BEGIN
+         IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '{{ pg_user }}') THEN
+            CREATE ROLE {{ pg_user }} LOGIN PASSWORD '{{ pg_user_password }}';
+         ELSE
+            ALTER ROLE {{ pg_user }} WITH LOGIN PASSWORD '{{ pg_user_password }}';
+         END IF;
+      END
+      $$;
+  changed_when: false
+  no_log: true
+
+- name: Comprobar si existe la base de datos
+  ansible.builtin.command: runuser -u postgres -- psql -tAc "SELECT 1 FROM pg_database WHERE datname='{{ pg_db }}'"
+  args:
+    chdir: /var/lib/pgsql
+  register: pg_db_existe
+  changed_when: false
+
+- name: Crear la base de datos nueva
+  ansible.builtin.command: runuser -u postgres -- createdb -O {{ pg_user }} {{ pg_db }}
+  args:
+    chdir: /var/lib/pgsql
+  when: pg_db_existe.stdout.strip() != '1'
+
+- name: Abrir el puerto de PostgreSQL en firewalld (si esta activo)
+  ansible.builtin.shell: |
+    systemctl is-active --quiet firewalld || exit 0
+    firewall-cmd --permanent --add-port={{ pg_port }}/tcp
+    firewall-cmd --reload
+  changed_when: false
+
+- name: Pagina de prueba PHP -> PostgreSQL
+  ansible.builtin.template:
+    src: pg_test.php.j2
+    dest: /srv/www/htdocs/pg_test.php
+    owner: root
+    group: www
+    mode: "0640"

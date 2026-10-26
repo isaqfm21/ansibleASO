@@ -1,0 +1,13 @@
+---
+pg_packages:
+  - postgresql
+  - postgresql-server
+  - postgresql-contrib
+  - php8-pgsql
+pg_data_dir: /var/lib/pgsql/data
+pg_port: 5432
+pg_db: appdb_pg
+pg_user: appuser_pg
+pg_remote_network: 192.168.0.0/24
+pg_postgres_password: "{{ vault_pg_postgres_password }}"
+pg_user_password: "{{ vault_pg_user_password }}" 

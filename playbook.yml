@@ -1,5 +1,5 @@
 ---
-- name: Despliegue LAMP + Samba + FTP 
+- name: Despliegue LAMP + Samba + FTP + postgresql
   hosts: "{{ grupo | default('ASO') }}"
   gather_facts: false
   roles:
@@ -9,3 +9,5 @@
     - phpmyadmin
     - samba
     - ftp
+    - postgresql
+
